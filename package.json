@@ -32,9 +32,9 @@
     "compression": "^1.5.2",
     "cors": "^2.7.1",
     "express": "^4.13.3",
+    "gif.js": "^0.2.0",
     "morgan": "^1.8.0",
     "puppeteer": "^1.13.0",
-    "puppeteer-recorder": "^1.0.7",
     "resource-router-middleware": "^0.6.0"
   },
   "devDependencies": {

@@ -17,29 +17,15 @@ export default ({ config, db }) => {
 
   api.get("/render", (req, res) => {
     const puppeteer = require("puppeteer");
-    let countFrames = 0;
+ 
     (async () => {
       const browser = await puppeteer.launch({ headless: true });
       const page = await browser.newPage();
       await page.goto("http://localhost:3000/?puppeteer=true");
       const override = Object.assign(page.viewport(), { width: 1366 });
       await page.setViewport(override);
-      await record({
-        browser: browser, // Optional: a puppeteer Browser instance,
-        page: page, // Optional: a puppeteer Page instance,
-        output: "output.webm",
-        fps: 30,
-        frames: 60 * 35, // 5 seconds at 60 fps
-        prepare: function(browser, page) {
-          /* executed before first capture */
-        },
-        render: function(browser, page, frame) {
-          /* executed before each capture */
-          countFrames++;
-          console.log(countFrames);
-        }
-      });
-
+      
+      await setTimeout(null, 35)
       await browser.close();
     })();
 
