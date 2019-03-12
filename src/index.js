@@ -9,6 +9,7 @@ import api from "./api";
 import config from "./config.json";
 
 let app = express();
+
 app.server = http.createServer(app);
 
 // logger
@@ -21,11 +22,7 @@ app.use(
   })
 );
 
-app.use(
-  bodyParser.json({
-    limit: config.bodyLimit
-  })
-);
+app.use(bodyParser.raw({ type: "application/octet-stream", limit: 999999999 }));
 
 // connect to db
 initializeDb(db => {
