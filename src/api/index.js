@@ -72,7 +72,7 @@ export default ({
                     exec(
                         "ffmpeg -i " +
                         req.params.hash +
-                        '.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -b 5000k -s 1920x1080' +
+                        '.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -b 5000k -s 1920x1080 ' +
                         req.params.hash +
                         ".mp4"
                     );
