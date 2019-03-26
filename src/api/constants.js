@@ -1,0 +1,1 @@
+export const ACTIVE_SUBSCRIPTION_PLAN_ID = 47;

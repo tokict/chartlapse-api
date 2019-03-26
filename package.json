@@ -28,11 +28,16 @@
   "author": "Jason Miller <jason@developit.ca>",
   "license": "MIT",
   "dependencies": {
+    "better-queue": "^3.8.10",
+    "better-queue-sqlite": "^1.0.5",
     "compression": "^1.5.2",
     "cors": "^2.7.1",
     "express": "^4.13.3",
+    "express-jwt": "^5.3.1",
     "gif.js": "^0.2.0",
+    "knex": "^0.16.3",
     "morgan": "^1.8.0",
+    "mysql": "^2.16.0",
     "puppeteer": "^1.13.0",
     "resource-router-middleware": "^0.6.0"
   },

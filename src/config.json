@@ -1,5 +1,6 @@
 {
   "port": 8080,
   "bodyLimit": "30mb",
-  "corsHeaders": ["Link"]
+  "corsHeaders": ["Link"],
+  "jwtKey": ".ogA8G#dbr,Z_+!cfmYSB@%LLJV7j&[~:o;rcj_k9_I`d{RG)pTCT|P9/A?`n0hl"
 }
