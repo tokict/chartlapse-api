@@ -1,7 +1,6 @@
 import http from "http";
 import express from "express";
 import cors from "cors";
-import morgan from "morgan";
 import bodyParser from "body-parser";
 import initializeDb from "./db";
 import middleware from "./middleware";
@@ -10,17 +9,15 @@ import config from "./config.json";
 import Queue from "async/queue";
 import puppeteer from "puppeteer";
 import JwtValidator from "express-jwt";
-const { exec } = require("child_process");
+import fs from "fs";
+const exec = require("await-exec");
+
 var page;
 var browser;
 
 let app = express();
 
 app.server = http.createServer(app);
-
-// logger
-app.use(morgan("dev"));
-app.use(JwtValidator({ secret: config.jwtKey }).unless({ path: ["/token"] }));
 
 // 3rd party middleware
 app.use(
@@ -35,7 +32,11 @@ app.use(bodyParser.raw({ type: "application/octet-stream", limit: 999999999 }));
 initializeDb(db => {
   // internal middleware
   app.use(middleware({ config, db }));
-
+  app.use(
+    JwtValidator({ secret: config.jwtKey }).unless(function(req) {
+      return req.path.includes(["/api/saveGif"]);
+    })
+  );
   // api router
   app.use("/api", api({ config, db }));
 
@@ -48,6 +49,25 @@ initializeDb(db => {
   });
 });
 
+const removeAndSaveQueue = params => {
+  console.log("Removing");
+  const index = global.queue.findIndex(
+    item =>
+      item.user === params.user &&
+      item.group === params.group &&
+      item.hash === params.hash
+  );
+  global.queue.splice(index, 1);
+
+  fs.writeFile("./queue.json", JSON.stringify(queue), function(err) {
+    if (err) {
+      console.log("err saving queue", err);
+    } else {
+      console.log("Queue updated");
+    }
+  });
+};
+
 global.renderQueue = new Queue(async (params, callback) => {
   try {
     console.log("Starting " + params.group + "/" + params.hash);
@@ -59,7 +79,7 @@ global.renderQueue = new Queue(async (params, callback) => {
     page = await context.newPage();
 
     await page.goto(
-      "http://192.168.1.100:3000/?group=" +
+      "http://app.chartlapse.lo:3000/?group=" +
         params.group +
         "&hash=" +
         params.hash +
@@ -68,27 +88,35 @@ global.renderQueue = new Queue(async (params, callback) => {
         timeout: 0
       }
     );
-    // const override = Object.assign(page.viewport(), { width: 800 });
-    //await page.setViewport(override);
+    const override = Object.assign(page.viewport(), { width: 800 });
+    await page.setViewport(override);
 
     var functionToInject = function() {
-      return window.encodingDone;
+      return {
+        done: document.encodingDone,
+        renderProgress: document.renderProgress,
+        captureProgress: document.capturedFramesProgress,
+        msg: document.msg
+      };
     };
 
     const checkInterval = setInterval(async () => {
-      var done = await page.evaluate(functionToInject);
-      if (done) {
+      var data = await page.evaluate(functionToInject);
+      console.log(data);
+      if (data.done) {
         clearInterval(checkInterval);
         console.log("Done, " + params.hash);
+        console.log(data.msg);
         browser.close();
-        callback(null, null);
-        exec(
+        await exec(
           "ffmpeg -i " +
             params.hash +
             '.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -b 5000k -s 1920x1080 ' +
             params.hash +
             ".mp4"
         );
+        removeAndSaveQueue(params);
+        callback(null, null);
       }
     }, 1000);
   } catch (e) {
@@ -99,5 +127,20 @@ global.renderQueue = new Queue(async (params, callback) => {
 global.renderQueue.drain = function() {
   console.log("all items have been processed");
 };
+
+/**
+ * Lets get the queue file
+ *
+ */
+global.queue = fs.existsSync("./queue.json");
+if (!global.queue) {
+  global.queue = [];
+} else {
+  global.queue = JSON.parse(fs.readFileSync("./queue.json"));
+}
+
+global.queue.forEach(item => {
+  global.renderQueue.push(item, null, true);
+});
 
 export default app;

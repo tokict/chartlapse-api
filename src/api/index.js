@@ -2,7 +2,6 @@ import { version } from "../../package.json";
 import { Router } from "express";
 import facets from "./facets";
 import fs from "fs";
-import { ACTIVE_SUBSCRIPTION_PLAN_ID } from "./constants";
 
 var knex = require("knex")({
   client: "mysql",
@@ -13,6 +12,27 @@ var knex = require("knex")({
     database: "chartlapse"
   }
 });
+
+const addAndSaveQueue = params => {
+  const index = global.queue.findIndex(
+    item =>
+      item.user === params.user &&
+      item.group === params.group &&
+      item.hash === params.hash
+  );
+
+  if (index !== -1) return false;
+  global.queue.push(params);
+
+  fs.writeFile("../queue.json", JSON.stringify(queue), function(err) {
+    if (err) {
+      console.log("err saving queue", err);
+    } else {
+      console.log("Queue updated");
+    }
+  });
+  return true;
+};
 
 export default ({ config, db }) => {
   let api = Router();
@@ -49,16 +69,39 @@ export default ({ config, db }) => {
   });
 
   api.get("/render/:group/:hash", (req, res) => {
-    global.renderQueue.push(req.params, function(err) {
-      console.log(
-        "finished processing " + req.params.group + "/" + req.params.hash
+    req.params.user = req.user.data.user.id;
+    const index = global.queue.findIndex(item => {
+      return (
+        item.user === req.params.user &&
+        item.group === req.params.group &&
+        item.hash === req.params.hash
       );
     });
 
-    res.json("OK");
+    if (index !== -1) {
+      res.status(403);
+      res.send();
+    } else {
+      addAndSaveQueue(req.params);
+      global.renderQueue.push(
+        { ...req.params, user: req.user.data.user.id },
+        function(err) {
+          if (err) {
+            res.status(400).send(err);
+          } else {
+            console.log(
+              "finished processing " + req.params.group + "/" + req.params.hash
+            );
+            res.json("OK");
+            // Create download links and send mail
+          }
+        }
+      );
+    }
   });
 
   api.post("/saveGif", async (req, res) => {
+    console.log(req.body);
     fs.writeFile("./" + req.headers.hash + ".gif", req.body, function(err) {
       if (err) {
         console.log("err", err);

@@ -28,6 +28,7 @@
   "author": "Jason Miller <jason@developit.ca>",
   "license": "MIT",
   "dependencies": {
+    "await-exec": "^0.1.2",
     "better-queue": "^3.8.10",
     "better-queue-sqlite": "^1.0.5",
     "compression": "^1.5.2",
@@ -38,6 +39,7 @@
     "knex": "^0.16.3",
     "morgan": "^1.8.0",
     "mysql": "^2.16.0",
+    "nodemailer": "^6.0.0",
     "puppeteer": "^1.13.0",
     "resource-router-middleware": "^0.6.0"
   },
