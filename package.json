@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon -w src --exec \"babel-node src --presets es2015,stage-0\"",
     "build": "babel src -s -D -d dist --presets es2015,stage-0",
-    "start": "node dist",
+    "start": "nodemon -w dist --exec \"babel-node src --presets es2015,stage-0\"",
     "prestart": "npm run -s build",
     "test": "eslint src"
   },
@@ -29,14 +29,15 @@
   "license": "MIT",
   "dependencies": {
     "await-exec": "^0.1.2",
-    "better-queue": "^3.8.10",
-    "better-queue-sqlite": "^1.0.5",
     "compression": "^1.5.2",
     "cors": "^2.7.1",
     "express": "^4.13.3",
     "express-jwt": "^5.3.1",
     "gif.js": "^0.2.0",
+    "helmet": "^3.16.0",
     "knex": "^0.16.3",
+    "md5": "^2.2.1",
+    "moment": "^2.24.0",
     "morgan": "^1.8.0",
     "mysql": "^2.16.0",
     "nodemailer": "^6.0.0",

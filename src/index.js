@@ -8,14 +8,27 @@ import api from "./api";
 import config from "./config.json";
 import Queue from "async/queue";
 import puppeteer from "puppeteer";
+import helmet from "helmet";
 import JwtValidator from "express-jwt";
 import fs from "fs";
 const exec = require("await-exec");
+import { sendMail } from "./lib/util.js";
+var md5 = require("md5");
 
 var page;
 var browser;
-
+let dbInstance;
 let app = express();
+
+const getUser = id =>
+  dbInstance("wp_users")
+    .leftJoin("wp_pms_member_subscriptions", "user_id", "user_id")
+    .where({
+      user_id: id,
+      status: "active"
+    })
+    .select("user_nicename", "status", "subscription_plan_id", "user_email")
+    .first();
 
 app.server = http.createServer(app);
 
@@ -25,12 +38,13 @@ app.use(
     exposedHeaders: config.corsHeaders
   })
 );
-
-app.use(bodyParser.raw({ type: "application/octet-stream", limit: 999999999 }));
+app.use(helmet());
+app.use(bodyParser.json({ type: "application/json" }));
 
 // connect to db
 initializeDb(db => {
   // internal middleware
+  dbInstance = db;
   app.use(middleware({ config, db }));
   app.use(
     JwtValidator({ secret: config.jwtKey }).unless(function(req) {
@@ -70,52 +84,77 @@ const removeAndSaveQueue = params => {
 
 global.renderQueue = new Queue(async (params, callback) => {
   try {
-    console.log("Starting " + params.group + "/" + params.hash);
+    const user = await getUser(params.user);
+    console.log("Starting " + user.user_nicename + "/" + params.hash);
     browser = await puppeteer.launch({
       headless: true
     });
 
-    const context = await browser.createIncognitoBrowserContext();
-    page = await context.newPage();
-
+    //const context = await browser.createIncognitoBrowserContext();
+    page = await browser.newPage();
+    const override = Object.assign(page.viewport(), { width: 800 });
+    await page.setViewport(override);
     await page.goto(
       "http://app.chartlapse.lo:3000/?group=" +
         params.group +
         "&hash=" +
         params.hash +
-        "&startAt=0&endAt=10&puppeteer=true",
+        "&startAt=0&endAt=10&puppeteer=true&username=" +
+        user.user_nicename,
       {
-        timeout: 0
+        timeout: 0,
+        waitUntil: "networkidle2"
       }
     );
-    const override = Object.assign(page.viewport(), { width: 800 });
-    await page.setViewport(override);
 
-    var functionToInject = function() {
+    await page.waitFor("input[name=userdata]");
+    await page.$eval(
+      "input[name=userdata]",
+      (el, value) => (el.value = value),
+      JSON.stringify({ ...params, ...user })
+    );
+
+    var functionToInject = function(data) {
       return {
         done: document.encodingDone,
         renderProgress: document.renderProgress,
         captureProgress: document.capturedFramesProgress,
+        framesPerSecond: document.framesPerSecond,
         msg: document.msg
       };
     };
 
     const checkInterval = setInterval(async () => {
       var data = await page.evaluate(functionToInject);
-      console.log(data);
+
       if (data.done) {
         clearInterval(checkInterval);
-        console.log("Done, " + params.hash);
-        console.log(data.msg);
+
+        sendMail(
+          user.user_email,
+          "Your chart is ready",
+          "You can get your gif at: "
+        );
+
+        addToStats(data.framesPerSecond);
         browser.close();
+
+        const filePath =
+          __dirname +
+          "/../data/" +
+          user.user_nicename +
+          "/" +
+          md5(params.userTitle);
+
         await exec(
           "ffmpeg -i " +
-            params.hash +
+            filePath +
             '.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -b 5000k -s 1920x1080 ' +
-            params.hash +
+            filePath +
             ".mp4"
         );
         removeAndSaveQueue(params);
+
         callback(null, null);
       }
     }, 1000);
@@ -139,8 +178,38 @@ if (!global.queue) {
   global.queue = JSON.parse(fs.readFileSync("./queue.json"));
 }
 
+/**
+ * Lets get the render stats file
+ *
+ */
+global.renderStats = fs.existsSync("./renderStats.json");
+if (!global.renderStats) {
+  global.renderStats = [];
+} else {
+  global.renderStats = JSON.parse(fs.readFileSync("./renderStats.json"));
+}
+
 global.queue.forEach(item => {
   global.renderQueue.push(item, null, true);
 });
+
+const addToStats = time => {
+  global.renderStats.push(time);
+
+  if (global.renderStats.length > 100) {
+    global.renderStats.slice(0, 1);
+  }
+  fs.writeFile(
+    "./renderStats.json",
+    JSON.stringify(global.renderStats),
+    function(err) {
+      if (err) {
+        console.log("err saving stats", err);
+      } else {
+        console.log("Stats updated");
+      }
+    }
+  );
+};
 
 export default app;

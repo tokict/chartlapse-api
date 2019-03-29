@@ -7,3 +7,7 @@
 output\.webm
 
 queue\.json
+
+renderStats\.json
+
+src/db\.js
