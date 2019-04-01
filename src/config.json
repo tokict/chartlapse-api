@@ -1,4 +1,6 @@
 {
+  "hostname": "http://app.chartlapse.lo:3000",
+  "apiHostname": "http://api.chartlapse.lo:8082",
   "port": 8082,
   "bodyLimit": "30mb",
   "corsHeaders": ["Link"],

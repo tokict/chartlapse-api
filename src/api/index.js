@@ -177,5 +177,29 @@ export default ({ config, db }) => {
     }
   );
 
+  api.get("/downloadUserGif/:filename", (req, res) => {
+    getUser(req.user.data.user.id).then(u => {
+      const file =
+        __dirname +
+        "/../../data/" +
+        u.user_nicename +
+        "/" +
+        req.params.filename;
+      res.download(file); // Set disposition and send it.
+    });
+  });
+
+  api.get("/downloadUserVideo/:filename", (req, res) => {
+    getUser(req.user.data.user.id).then(u => {
+      const file =
+        __dirname +
+        "/../../data/" +
+        u.user_nicename +
+        "/" +
+        req.params.filename;
+      res.download(file); // Set disposition and send it.
+    });
+  });
+
   return api;
 };

@@ -28,8 +28,10 @@
   "author": "Jason Miller <jason@developit.ca>",
   "license": "MIT",
   "dependencies": {
+    "async": "^2.6.2",
     "await-exec": "^0.1.2",
     "compression": "^1.5.2",
+    "cookie-parser": "^1.4.4",
     "cors": "^2.7.1",
     "express": "^4.13.3",
     "express-jwt": "^5.3.1",

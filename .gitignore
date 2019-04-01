@@ -11,3 +11,5 @@ queue\.json
 renderStats\.json
 
 src/db\.js
+
+\.env

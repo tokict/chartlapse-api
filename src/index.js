@@ -11,6 +11,7 @@ import puppeteer from "puppeteer";
 import helmet from "helmet";
 import JwtValidator from "express-jwt";
 import fs from "fs";
+import CookieParser from "cookie-parser";
 const exec = require("await-exec");
 import { sendMail } from "./lib/util.js";
 var md5 = require("md5");
@@ -31,6 +32,7 @@ const getUser = id =>
     .first();
 
 app.server = http.createServer(app);
+app.use(CookieParser());
 
 // 3rd party middleware
 app.use(
@@ -47,7 +49,20 @@ initializeDb(db => {
   dbInstance = db;
   app.use(middleware({ config, db }));
   app.use(
-    JwtValidator({ secret: config.jwtKey }).unless(function(req) {
+    JwtValidator({
+      secret: config.jwtKey,
+      getToken: function fromHeaderOrQuerystring(req) {
+        if (
+          req.headers.authorization &&
+          req.headers.authorization.split(" ")[0] === "Bearer"
+        ) {
+          return req.headers.authorization.split(" ")[1];
+        } else if (req.cookies["access_token"]) {
+          return req.cookies["access_token"];
+        }
+        return null;
+      }
+    }).unless(function(req) {
       return req.path.includes(["/api/saveGif"]);
     })
   );
@@ -85,6 +100,7 @@ const removeAndSaveQueue = params => {
 global.renderQueue = new Queue(async (params, callback) => {
   try {
     const user = await getUser(params.user);
+    params.hash = params.userTitle ? md5(params.userTitle) : params.hash;
     console.log("Starting " + user.user_nicename + "/" + params.hash);
     browser = await puppeteer.launch({
       headless: true
@@ -133,7 +149,16 @@ global.renderQueue = new Queue(async (params, callback) => {
         sendMail(
           user.user_email,
           "Your chart is ready",
-          "You can get your gif at: "
+          "You can get your gif at: " +
+            config.apiHostname +
+            "/api/downloadUserGif/" +
+            params.hash +
+            ".gif\r\n" +
+            "You can get your video at: " +
+            config.apiHostname +
+            "/api/downloadUserVideo/" +
+            params.hash +
+            ".mp4"
         );
 
         addToStats(data.framesPerSecond);
