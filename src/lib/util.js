@@ -1,4 +1,12 @@
 import nodemailer from "nodemailer";
+import moment from "moment";
+import md5 from "md5";
+import {
+  FREE_SUBSCRIPTION_PLAN_ID,
+  BASIC_SUBSCRIPTION_PLAN_ID,
+  PRO_SUBSCRIPTION_PLAN_ID,
+  MYSQL_TIME_FORMAT
+} from "../api/constants";
 /**	Creates a callback that proxies node callback style arguments to an Express Response object.
  *	@param {express.Response} res	Express HTTP Response
  *	@param {number} [status=200]	Status code to send on success
@@ -25,6 +33,84 @@ const transporter = nodemailer.createTransport({
   newline: "unix",
   path: "/usr/sbin/sendmail"
 });
+
+export function logChartCreation(params, db) {
+  const unique_id = md5(params.hash + params.user + moment().valueOf());
+  db("graphs")
+    .insert({
+      unique_id: unique_id,
+      user_id: params.user * 1,
+      graph_title: params.userTitle,
+      graph_data: JSON.stringify(params.userData),
+      request_time: moment().format(MYSQL_TIME_FORMAT),
+      graph_hash: params.hash,
+      estimated_render_time: params.timeToProcess,
+      queue_position: params.queuePosition
+    })
+    .then(res => console.log("Chart logged", res));
+
+  return unique_id;
+}
+
+export async function isUserAllowedToCreate(params, db) {
+  const plan = await db("wp_pms_member_subscriptions")
+    .where({ user_id: params.user })
+    .select("subscription_plan_id as plan_id")
+    .first();
+
+  const number = await db("graphs as g")
+    .leftJoin(
+      "wp_pms_member_subscriptions as subs",
+      "subs.user_id",
+      "g.user_id"
+    )
+    .where({
+      "g.user_id": params.user,
+      "subs.status": "active"
+    })
+
+    .whereNotNull("render_time")
+    .whereRaw("DATE(render_finish_time ) = CURDATE()")
+    .count("g.id as nr")
+    .first();
+
+  let left;
+
+  switch (plan.plan_id) {
+    case FREE_SUBSCRIPTION_PLAN_ID:
+      left = 0;
+      break;
+    case BASIC_SUBSCRIPTION_PLAN_ID:
+      left = 1 - number.nr;
+      break;
+    case PRO_SUBSCRIPTION_PLAN_ID:
+      left = 10 - number.nr;
+      break;
+  }
+
+  return { left };
+}
+
+export function updateChartLog(params, db) {
+  const finishTime = moment();
+
+  const duration = moment.duration(finishTime.diff(params.renderStartTime));
+
+  db("graphs")
+    .where(
+      { user_id: params.user * 1, unique_id: params.unique_id },
+      {
+        render_finish_time: finishTime.format(MYSQL_TIME_FORMAT),
+        render_time: duration.asMinutes()
+      }
+    )
+    .update({
+      render_start_time: params.renderStartTime.format(MYSQL_TIME_FORMAT),
+      render_finish_time: finishTime.format(MYSQL_TIME_FORMAT),
+      render_time: duration.asMinutes()
+    })
+    .then(res => console.log("Updated", res));
+}
 
 export function sendMail(to, subject, text) {
   transporter.sendMail(

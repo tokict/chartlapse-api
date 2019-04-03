@@ -2,10 +2,13 @@ import { version } from "../../package.json";
 import { Router } from "express";
 import facets from "./facets";
 import fs from "fs";
-
 import moment from "moment";
 import bodyParser from "body-parser";
-import { sendMail } from "../lib/util.js";
+import {
+  sendMail,
+  isUserAllowedToCreate,
+  logChartCreation
+} from "../lib/util.js";
 var md5 = require("md5");
 
 export default ({ config, db }) => {
@@ -38,18 +41,19 @@ export default ({ config, db }) => {
     const expectedProcessingTime = moment.duration(ends.diff(now));
 
     params.timeToProcess = parseInt(expectedProcessingTime.asMinutes());
+    params.queuePosition = global.queue.length ? global.queue : 1;
+    const unique_id = logChartCreation(params, db);
 
     global.queue.push(params);
-
-    getUser(params.user).then(u =>
+    getUser(params.user).then(u => {
       sendMail(
         u.user_email,
         "Your chart is queued for render",
         "The estimated time for completion is: " +
           params.timeToProcess +
           " minutes"
-      )
-    );
+      );
+    });
 
     fs.writeFile("./queue.json", JSON.stringify(queue), err => {
       if (err) {
@@ -64,7 +68,7 @@ export default ({ config, db }) => {
         );
       }
     });
-    return true;
+    return unique_id;
   };
 
   const checkAndCreateUserFolder = username => {
@@ -109,8 +113,18 @@ export default ({ config, db }) => {
       );
   });
 
-  api.post("/render", (req, res) => {
+  api.post("/render", async (req, res) => {
     req.params.user = req.user.data.user.id;
+    const limits = await isUserAllowedToCreate(req.params, db);
+
+    if (limits.left < 1) {
+      res.status(400);
+      res.json({
+        error:
+          "You have reached your render limit for the day. Please try again tomorrow"
+      });
+      return;
+    }
 
     const index = global.queue.findIndex(item => {
       return (
@@ -125,12 +139,12 @@ export default ({ config, db }) => {
       getUser(req.params.user).then(u => {
         req.body.username = u.user_nicename;
 
-        addAndSaveQueue({ ...req.body, user: req.params.user });
+        const unique_id = addAndSaveQueue({
+          ...req.body,
+          user: req.params.user
+        });
         global.renderQueue.push(
-          {
-            ...req.body,
-            user: req.user.data.user.id
-          },
+          { unique_id: unique_id, ...req.body, user: req.user.data.user.id },
           function(err) {
             if (err) {
               res.status(400).send(err);
@@ -146,7 +160,7 @@ export default ({ config, db }) => {
             }
           }
         );
-        res.json("OK");
+        res.json({ left: limits });
       });
     }
   });

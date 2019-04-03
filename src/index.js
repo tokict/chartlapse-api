@@ -5,6 +5,7 @@ import bodyParser from "body-parser";
 import initializeDb from "./db";
 import middleware from "./middleware";
 import api from "./api";
+import moment from "moment";
 import config from "./config.json";
 import Queue from "async/queue";
 import puppeteer from "puppeteer";
@@ -13,7 +14,8 @@ import JwtValidator from "express-jwt";
 import fs from "fs";
 import CookieParser from "cookie-parser";
 const exec = require("await-exec");
-import { sendMail } from "./lib/util.js";
+import { sendMail, updateChartLog } from "./lib/util.js";
+import { MYSQL_TIME_FORMAT } from "./api/constants";
 var md5 = require("md5");
 
 var page;
@@ -47,6 +49,7 @@ app.use(bodyParser.json({ type: "application/json" }));
 initializeDb(db => {
   // internal middleware
   dbInstance = db;
+
   app.use(middleware({ config, db }));
   app.use(
     JwtValidator({
@@ -100,13 +103,16 @@ const removeAndSaveQueue = params => {
 global.renderQueue = new Queue(async (params, callback) => {
   try {
     const user = await getUser(params.user);
+    if (!params.userTitle || params.userTitle == "") {
+      params.userTitle = moment().format(MYSQL_TIME_FORMAT);
+    }
     params.hash = params.userTitle ? md5(params.userTitle) : params.hash;
     console.log("Starting " + user.user_nicename + "/" + params.hash);
     browser = await puppeteer.launch({
       headless: true
     });
+    params.renderStartTime = moment();
 
-    //const context = await browser.createIncognitoBrowserContext();
     page = await browser.newPage();
     const override = Object.assign(page.viewport(), { width: 800 });
     await page.setViewport(override);
@@ -140,7 +146,7 @@ global.renderQueue = new Queue(async (params, callback) => {
       };
     };
 
-    const checkInterval = setInterval(async () => {
+    const checkInterval = setInterval(async db => {
       var data = await page.evaluate(functionToInject);
 
       if (data.done) {
@@ -162,6 +168,9 @@ global.renderQueue = new Queue(async (params, callback) => {
         );
 
         addToStats(data.framesPerSecond);
+
+        updateChartLog(params, dbInstance);
+
         browser.close();
 
         const filePath =

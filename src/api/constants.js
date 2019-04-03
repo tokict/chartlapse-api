@@ -1,1 +1,4 @@
-export const ACTIVE_SUBSCRIPTION_PLAN_ID = 47;
+export const FREE_SUBSCRIPTION_PLAN_ID = 59;
+export const BASIC_SUBSCRIPTION_PLAN_ID = 47;
+export const PRO_SUBSCRIPTION_PLAN_ID = 34;
+export const MYSQL_TIME_FORMAT = "YYYY-MM-DD HH:mm:ss";
