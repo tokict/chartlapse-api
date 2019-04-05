@@ -1,0 +1,12 @@
+{
+    "hostname": "",
+    "apiHostname": "",
+    "port": 8082,
+    "bodyLimit": "30mb",
+    "corsHeaders": ["Link"],
+    "jwtKey": "",
+    "dbHost": "",
+    "dbUser": "",
+    "dbPass": "",
+    "dbname": ""
+}
