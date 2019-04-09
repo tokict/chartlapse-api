@@ -129,8 +129,8 @@ export function sendMail(to, subject, text) {
             text
         },
         (err, info) => {
-            console.log(1, err);
-            console.log(2, info);
+            // console.log(1, err);
+            // console.log(2, info);
             console.log(3, info);
         }
     );

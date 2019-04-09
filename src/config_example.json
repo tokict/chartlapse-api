@@ -1,0 +1,12 @@
+{
+    "hostname": "https://app.chartlapse.com",
+    "apiHostname": "https://api.chartlapse.com",
+    "port": 8082,
+    "bodyLimit": "100mb",
+    "corsHeaders": ["Link"],
+    "jwtKey": "",
+    "dbHost": "178.62.139.13",
+    "dbUser": "app",
+    "dbPass": "",
+    "dbname": "chartlapse"
+}

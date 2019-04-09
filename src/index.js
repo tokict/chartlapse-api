@@ -13,11 +13,13 @@ import helmet from "helmet";
 import JwtValidator from "express-jwt";
 import fs from "fs";
 import CookieParser from "cookie-parser";
-const exec = require("await-exec");
+
 import { sendMail, updateChartLog } from "./lib/util.js";
 import { MYSQL_TIME_FORMAT } from "./api/constants";
-var md5 = require("md5");
+var morgan = require('morgan')
 
+var md5 = require("md5");
+const path = require("path");
 var page;
 var browser;
 let dbInstance;
@@ -43,6 +45,7 @@ app.use(
     })
 );
 app.use(helmet());
+app.use(morgan('tiny'))
 app.use(bodyParser.json({ type: "application/json" }));
 
 // connect to db
@@ -108,8 +111,13 @@ global.renderQueue = new Queue(async(params, callback) => {
         }
         params.hash = params.userTitle ? md5(params.userTitle) : params.hash;
         console.log("Starting " + user.user_nicename + "/" + params.hash);
+        const args = puppeteer.defaultArgs().filter(arg => arg !== '--disable-gpu');
+        args.push('--use-gl=desktop');
+        args.push('--disable-web-security');
         browser = await puppeteer.launch({
-            headless: true
+            headless: true,
+            ignoreDefaultArgs: true,
+            args
         });
         params.renderStartTime = moment();
 
@@ -147,7 +155,7 @@ global.renderQueue = new Queue(async(params, callback) => {
 
         const checkInterval = setInterval(async db => {
             var data = await page.evaluate(functionToInject);
-
+            console.log(data)
             if (data.done) {
                 clearInterval(checkInterval);
 
@@ -172,20 +180,7 @@ global.renderQueue = new Queue(async(params, callback) => {
 
                 browser.close();
 
-                const filePath =
-                    __dirname +
-                    "/../data/" +
-                    user.user_nicename +
-                    "/" +
-                    md5(params.userTitle);
 
-                await exec(
-                    "ffmpeg -i " +
-                    filePath +
-                    '.gif -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -b 5000k -s 1920x1080 ' +
-                    filePath +
-                    ".mp4"
-                );
                 removeAndSaveQueue(params);
 
                 callback(null, null);
