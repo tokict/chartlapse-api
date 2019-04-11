@@ -4,6 +4,7 @@ import facets from "./facets";
 import fs from "fs";
 import moment from "moment";
 import bodyParser from "body-parser";
+import fetch from "node-fetch";
 import {
   sendMail,
   isUserAllowedToCreate,
@@ -111,6 +112,23 @@ export default ({ config, db }) => {
           email: u.user_email
         })
       );
+  });
+
+  api.post("/fetchImage", async (req, res) => {
+    const response = await fetch(req.body.url);
+
+    const blob = await response.buffer();
+    res.writeHead(200, {
+      "Content-Type": response.headers.get("content-type"),
+      "Content-disposition": "attachment;filename=gdrzrghdzhd",
+      "Content-Length": response.headers.get("content-length")
+    });
+    res.end(new Buffer(blob, "binary"));
+    return;
+    // const type = response.headers["content-type"];
+    // const blob = await response.blob();
+    // console.log(blob);
+    // res.type("application/octet-stream").send(blob);
   });
 
   api.post("/render", async (req, res) => {

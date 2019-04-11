@@ -13,3 +13,5 @@ renderStats\.json
 src/db\.js
 
 \.env
+
+data/
